@@ -1,0 +1,28 @@
+hive> Create table sales_order_csv
+    > (
+    > ORDERNUMBER int,
+    > QUANTITY_ORDERED INT,
+    > PRICE_EACH FLOAT,
+    > ORDER_LINE_NUMBER INT,
+    > SALES INT,
+    > STATUS STRING,
+    > QTR_ID INT,
+    > MONTH_ID INT,
+    > YEAR_ID INT,
+    > PRODUCT_LINE STRING,
+    > MSRP INT,
+    > PRODUCT_CODE STRING,
+    > PHONE STRING,
+    > CITY STRING,
+    > STATE STRING,
+    > POSTALCODE STRING,
+    > COUNTRY STRING,
+    > TERRITORY STRING,
+    > CONTACT_LASTNAME STRING,
+    > CONTACT_FIRSTNAME STRING,
+    > DEALSIZE STRING
+    > )
+    > ROW FORMAT DELIMITED
+    > FIELDS TERMINATED BY ','
+    > TBLPROPERTIES("skip.header.line.count"="1");
+
