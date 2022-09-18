@@ -103,6 +103,19 @@ Limit 1;
 
 #e. In which country sales was maximum and in which country sales was minimum
 
+Select t1.* 
+From ( 
+      Select country,sum(sales) as Total_Sales,'Minimum Sales' as Remark from sales_order_orc
+      Group by country
+      order by Total_Sales
+      Limit 1 ) t1
+UNION ALL
+Select t2.* 
+From ( 
+      Select country,sum(sales) as Total_Sales,'Maximum Sales' as Remark from sales_order_orc
+      Group by country
+      order by Total_Sales desc
+      Limit 1 ) t2
 
 
 #f. Calculate quartelry sales for each city
