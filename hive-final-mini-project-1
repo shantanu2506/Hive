@@ -100,24 +100,143 @@ Group By Agent_Name;
 
 
 #12. average weekly response time for each agent 
+with cte as(
+Select Agent_Name,
+Total_Chats,
+unix_timestamp(concat(dt," ",Average_Responce_Time),'M/d/yyyy H:mm:ss')-
+unix_timestamp(dt,'M/d/yyyy') Average_Responce_Time,
+dense_rank() over 
+(partition by agent_name
+order by weekofyear(from_unixtime((unix_timestamp(Date,'M/d/yyyy')))) ) 
+week_no
+from Agent_Performance
+)
+select agent_name, 
+week_no, 
+sum(total_chats) total_chats_weekly,
+round(avg(Average_Responce_Time),2) weekly_rspnse_time
+from cte
+group by agent_name, week_no
+having total_chats_weekly>0
+order by Agent_Name,week_no;
+)
+select 
+agent_name,
+week_no,
+if (total_chats_weekly=0, NULL,weekly_rspnse_time) 
+from cte1
+order by agent_name, week_no;
 
 
 
 #13. average weekly resolution time for each agents 
 
+with cte as(
+Select Agent_Name,
+Total_Chats,
+unix_timestamp(concat(Date," ",Average_Resolution_Time),'M/d/yyyy H:mm:ss')-
+unix_timestamp(Date,'M/d/yyyy')Average_Resolution_Time,
+dense_rank() over 
+(partition by Agent_Name
+order by weekofyear(from_unixtime((unix_timestamp(Date,'M/d/yyyy')))) ) 
+week_no
+from Agent_Performance
+)
+select agent_name, 
+week_no, 
+sum(Total_Chats) total_chats_weekly,
+round(avg(Average_Resolution_Time),2) weekly_resol_time
+from cte
+group by agent_name, week_no
+having total_chats_weekly>0
+order by agent_name,week_no;
 
 #14. Find the number of chat on which they have received a feedback 
-
+select Agent_Name,Sum(Total_Feedback) as Total_Feedback from Agent_Performance
+Group by Agent_Name;
 
 
 
 #15. Total contribution hour for each and every agents weekly basis 
+Select 
+a.Agent_Name,
+dense_rank() over (partition by a.Agent_Name order by a.weekno) week_no,
+round(coalesce(b.hrs,0),4) hour_contribution
+from  
+(select 
+Agent_Name,
+weekofyear(from_unixtime(unix_timestamp(dt,'M/d/yyyy'))) weekno
+from Agent_Performance
+group by Agent_Name, weekofyear(from_unixtime(unix_timestamp(dt,'M/d/yyyy')))) a 
+left join 
+(
+select
+Agent,
+weekofyear(from_unixtime(unix_timestamp(Date,'dd-MMM-yy'))) weekno,
+sum(cast(split(duration,':')[0] as int) + 
+(cast(split(duration,':')[1] as int))/60 + 
+(cast(split(duration,':')[2] as int))/3600) hrs
+from Agent_Logging_Report
+group by Agent,
+weekofyear(from_unixtime(unix_timestamp(Date,'dd-MMM-yy')))
+) b
+on a.Agent_Name = b.Agent 
+and a.weekno=b.weekno
 
+;
 
 
 #16. Perform inner join, left join and right join based on the agent column and after joining the table export that data into your local system.
+
+Select t1.*,t2.* from Agent_Performance t1
+INNER JOIN Agent_Logging_Report t2
+ON t1.Agent_Name = t2.Agent;
+
+Select t1.*,t2.* from Agent_Performance t1
+LEFT JOIN Agent_Logging_Report t2
+ON t1.Agent_Name = t2.Agent;
+
+Select t1.*,t2.* from Agent_Performance t1
+Right JOIN Agent_Logging_Report t2
+ON t1.Agent_Name = t2.Agent;
 
 
 
 
 #17. Perform partitioning on top of the agent column and then on top of that perform bucketing for each partitioning.
+hive> Create table Agent_Performance_Bucket
+    > (
+    > SL_No int,
+    > Date String,
+    > Total_Chats int,
+    > Average_Responce_Time String,
+    > Average_Resolution_Time String,
+    > Average_Rating Float,
+    > Total_Feedback int
+    > )
+partitioned by (Agent_Name string)
+clustered by (Date) sorted by (Date) into 6 buckets
+;
+  
+set hive.enforce.bucketing = true;
+set hive.exec.dynamic.partition=true;    
+set hive.exec.dynamic.partition.mode=nonstrict;  
+
+
+insert into Agent_Performance_Bucket PARTITION (agent_name)
+select
+SL_No,
+from_unixtime(unix_timestamp(Date,'M/d/yyyy'),'yyyy-MM-dd') Date  ,
+Total_Chats,
+cast(split(Average_Responce_Time,':')[0] as int)*3600 + 
+(cast(split(Average_Responce_Time,':')[1] as int))*60 + 
+(cast(split(Average_Responce_Time,':')[2] as int)) Average_Responce_Time ,
+cast(split(Average_Resolution_Time,':')[0] as int)*3600 + 
+(cast(split(Average_Resolution_Time,':')[1] as int))*60 + 
+(cast(split(Average_Resolution_Time,':')[2] as int)) Average_Resolution_Time  ,
+Average_Rating,
+Total_Feedback,
+Agent_Name 
+from 
+Agent_Performance
+;
