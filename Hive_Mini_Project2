@@ -1,0 +1,299 @@
+#Objective - The assignment is meant for you to apply learnings of the module on Hive on a real-life dataset. One of the major objectives of this assignment is gaining familiarity with how an analysis works in Hive and how you can gain insights from large datasets.
+ 
+#Problem Statement - New York City is a thriving metropolis and just like most other cities of similar size, one of the biggest problems its residents face is parking. The classic combination of a huge number of cars and a cramped geography is the exact recipe that leads to a large number of parking tickets.
+ 
+#In an attempt to scientifically analyse this phenomenon, the NYC Police Department regularly collects data related to parking tickets. This data is made available by NYC Open Data portal. We will try and perform some analysis on this data.
+
+#Download Dataset - https://data.cityofnewyork.us/browse?q=parking+tickets
+
+#Note: Consider only the year 2017 for analysis and not the Fiscal year.
+
+Create table parking_voilation
+     (
+    Summons_Number bigint,
+    Plate_Id String,
+    Registration_State string,
+    Plate_Type string,
+    Issue_Date String,
+    Violation_Code int,
+    Vehicle_Body_Type string,
+    Vehicle_Make string,
+    Issueing_Agency string,
+    Street_Code1 int,
+    Street_Code2 int,
+    Street_Code3 int,
+    Vehicle_Expiration_Date int,
+    Violation_Location string,
+    Violation_Precinct int,
+    Issuer_Precinct int,
+    Issuer_Code int,
+    Issuer_Command string,
+    Issuer_Squad string,
+    Violation_Time string,
+    Time_First_Observed string,
+    Violation_Country string,
+    Violation_In_Front_Of_Or_Opposite string,
+    House_Number string,
+    Street_Name string,
+    Intersecting_Street string,
+    Date_First_Observed int,
+    Law_Section int,
+    Sub_Division string,
+    Violation_Legal_Code string,
+    Days_Parking_In_Effect string,
+    From_Hours_In_Effect string,
+    To_Hours_In_Effect string,
+    Vehicle_Color string,
+    Unregistered_Vehicle string,
+    Vehicle_Year int,
+    Meter_Number string,
+    Feet_From_Curb int,
+    Violation_Post_Code string,
+    Violation_Description string,
+    No_Standing_Or_Stopping_Violation string,
+    Hydrant_Violation string,
+    Double_Parking_Violation string
+    )
+    row format serde 'org.apache.hadoop.hive.serde2.OpenCSVSerde'                                                                           
+    with serdeproperties (                                                                                                                  
+    "separatorChar" = ",",                                                                                                                 
+    "quoteChar" = "\"",                                                                                                                    
+    "escapeChar" = "\\"                                                                                                                    
+    )                                                                                                                                       
+    stored as textfile                                                                                                                      
+    tblproperties ("skip.header.line.count" = "1");
+
+
+
+
+
+
+
+
+Create table parking_voilation_orc
+     (
+    Summons_Number bigint,
+    Plate_Id String,
+    Registration_State string,
+    Plate_Type string,
+    Issue_Date Date,
+    Violation_Code int,
+    Vehicle_Body_Type string,
+    Vehicle_Make string,
+    Issueing_Agency string,
+    Street_Code1 int,
+    Street_Code2 int,
+    Street_Code3 int,
+    Vehicle_Expiration_Date int,
+    Violation_Location string,
+    Violation_Precinct int,
+    Issuer_Precinct int,
+    Issuer_Code int,
+    Issuer_Command string,
+    Issuer_Squad string,
+    Violation_Time string,
+    Time_First_Observed string,
+    Violation_Country string,
+    Violation_In_Front_Of_Or_Opposite string,
+    House_Number string,
+    Street_Name string,
+    Intersecting_Street string,
+    Date_First_Observed int,
+    Law_Section int,
+    Sub_Division string,
+    Violation_Legal_Code string,
+    Days_Parking_In_Effect string,
+    From_Hours_In_Effect string,
+    To_Hours_In_Effect string,
+    Vehicle_Color string,
+    Unregistered_Vehicle string,
+    Vehicle_Year int,
+    Meter_Number string,
+    Feet_From_Curb int,
+    Violation_Post_Code string,
+    Violation_Description string,
+    No_Standing_Or_Stopping_Violation string,
+    Hydrant_Violation string,
+    Double_Parking_Violation string
+    )                                                                                                                                       
+    stored as orc ;
+
+
+The analysis can be divided into two parts:
+ 
+Part-I: Examine the data
+
+#1.) Find the total number of tickets for the year.
+select YEAR(from_unixtime(unix_timestamp(issue_date,'dd/mm/yyyy'),'yyyy-mm-dd')) , Count(Summons_Number)  from parking_voilation_orc where YEAR(from_unixtime(unix_timestamp(issue_date,'dd/mm/yyyy'),'yyyy-mm-dd')) = '2017' Group by 1;
+
+#2.) Find out how many unique states the cars which got parking tickets came from.
+Select Distinct(Registration_State) from parking_voilation_orc;
+
+
+#3.) Some parking tickets don’t have addresses on them, which is cause for concern. Find out how many such tickets there are(i.e. tickets where either "Street Code 1" or "Street Code 2" or "Street Code 3" is empty )
+Select Count(Summons_Number) from parking_voilation_orc where Street_Code1 = Null or Street_Code2 = Null or Street_Code3 = Null;
+
+
+Part-II: Aggregation tasks
+
+#1.) How often does each violation code occur? (frequency of violation codes - find the top 5)
+Select Violation_Code , Count(Violation_Code) as cnt from parking_voilation_orc Group by 1 order by cnt desc limit 5;
+
+#2.) How often does each vehicle body type get a parking ticket? How about the vehicle make? (find the top 5 for both)
+
+SELECT vehicle_body_type, count(*) cnt
+FROM parking_voilation_orc
+GROUP BY vehicle_body_type
+order by cnt desc limit 5;
+
+SELECT vehicle_make, count(*) cnt
+FROM parking_voilation_orc
+GROUP BY vehicle_make
+order by cnt desc limit 5;
+
+
+#3.) A precinct is a police station that has a certain zone of the city under its command. Find the (5 highest) frequencies of:
+      a.) Violating Precincts (this is the precinct of the zone where the violation occurred)
+
+     select violation_precinct, count(*) from parking_voilation_orc
+     group by violation_precinct;
+
+      b.) Issuer Precincts (this is the precinct that issued the ticket)
+     
+     select issuer_precinct, count(*) from parking_voilation_orc
+     group by issuer_precinct;
+
+#4.) Find the violation code frequency across 3 precincts which have issued the most number of tickets - do these precinct zones have an exceptionally high frequency of certain violation codes?
+with cte as
+(
+SELECT issuer_precinct,
+violation_code,
+count(violation_code) over (partition by issuer_precinct) cnt
+FROM parking_voilation_orc
+ 
+),
+cte1 as
+(
+select issuer_precinct, cnt precinct_viol_count, violation_code, count(*) Cnt_violations
+from cte 
+group by issuer_precinct, cnt, violation_code
+),
+cte2 as
+(
+select 
+issuer_precinct,violation_code,Cnt_violations, 
+dense_rank() over(order by precinct_viol_count desc) rnk
+from cte1
+)
+select issuer_precinct,violation_code,Cnt_violations from cte2
+where rnk<=3
+order by issuer_precinct, Cnt_violations desc
+
+
+#5.) Find out the properties of parking violations across different times of the day: The Violation Time field is specified in a strange format. Find a way to make this into a time attribute that you can use to divide into groups.
+
+Select date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') from parking_voilation;
+
+#6.) Divide 24 hours into 6 equal discrete bins of time. The intervals you choose are at your discretion. For each of these groups, find the 3 most commonly occurring violations
+with cte as 
+(
+select 
+case 
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 0 and 3 then '1st (0-3)'
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 4 and 7 then '2nd (4-7)'
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 8 and 11 then '3rd (8-11)'
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 12 and 15 then '4th (12-15)'
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 16 and 19 then '5th (16-19)'
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 20 and 23 then '6th (20-23)'
+end time_group,
+violation_code
+from 
+parking_voilation_orc
+),
+cte1 as 
+(
+select
+time_group,
+violation_code,
+count(*) violations
+from cte
+group by time_group,
+violation_code),
+cte2 as 
+(
+select time_group, violation_code, violations,
+dense_rank() over (partition by time_group order by violations desc) rnk
+from cte1
+)
+select time_group, violation_code, violations  from cte2
+where rnk <=3
+
+
+
+#7.) Now, try another direction. For the 3 most commonly occurring violation codes, find the most common times of day (in terms of the bins from the previous part)
+with cte as
+(
+select 
+case 
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 0 and 3 then '1st (0-3)'
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 4 and 7 then '2nd (4-7)'
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 8 and 11 then '3rd (8-11)'
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 12 and 15 then '4th (12-15)'
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 16 and 19 then '5th (16-19)'
+ when cast(date_format(from_unixtime(unix_timestamp(concat(issue_date,' ',concat(violation_time,'M')),'MM/dd/yyyy hhmmaa')), 'H') as int) between 20 and 23 then '6th (20-23)'
+end time_group,
+violation_code,
+count(violation_code) over (partition by violation_code) violations
+from 
+parking_voilation_orc
+),
+cte1 as
+(
+select 
+*,
+dense_rank() over (order by violations desc) most_viol_rnk
+
+from cte 
+)
+select violation_code, time_group, violations Total_Viol_under_code, 
+count(time_group) Total_Vio_under_timegroup
+from cte1 
+where most_viol_rnk<=3
+group by violation_code, time_group, violations
+order by violation_code, Total_Vio_under_timegroup desc
+
+#8.) Let’s try and find some seasonality in this data
+      a.) First, divide the year into some number of seasons, and find frequencies of tickets for each season. (Hint: A quick Google search reveals the following seasons in NYC: Spring(March, April, March); Summer(June, July, August); Fall(September, October, November); Winter(December, January, February))
+      b.)Then, find the 3 most common violations for each of these seasons.
+
+with cte as 
+(
+select 
+case 
+ when MONTH(from_unixtime(unix_timestamp(issue_date,'dd/mm/yyyy'),'yyyy-mm-dd')) between 03 and 05 then 'Spring'
+ when MONTH(from_unixtime(unix_timestamp(issue_date,'dd/mm/yyyy'),'yyyy-mm-dd')) between 06 and 08 then 'Summer'
+ when MONTH(from_unixtime(unix_timestamp(issue_date,'dd/mm/yyyy'),'yyyy-mm-dd')) between 09 and 11  then 'Fall'
+ when MONTH(from_unixtime(unix_timestamp(issue_date,'dd/mm/yyyy'),'yyyy-mm-dd')) in (1,2,12) then 'Winter'
+end season,
+violation_code
+from 
+parking_voilation
+),
+cte2 as 
+(
+select season, violation_code,
+count(*) violatons_per_season_per_code
+from cte
+group by season, violation_code
+),
+cte3 as (
+select season, violation_code,
+dense_rank() over(partition by season order by violatons_per_season_per_code desc) rnk
+from cte2
+)
+select season, violation_code from cte3
+where rnk<=3;
+
+
+
+
